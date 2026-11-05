@@ -1,0 +1,333 @@
+Telecoms.jl
+All functions are within the Telecoms namespace if not already specified.
+
+include(".../Telecoms/Telecoms.jl")
+using .Telecoms
+
+##########
+Utility:
+
+# CSV
+Telecoms.save_as_csv(data, display_ratio)
+Where data is a 2D vector of anything, express this as a CSV and
+save it to filename to which the function appends ".csv". Set 
+kwarg "quiet" to true to suppress loading bar. v[1][1], v[1][2]...
+kwarg "maxfilesize" exits if proposed file size exceeds this value
+in MB.
+
+Telecoms.load_csv(filename)
+kwarg "header" will attempt to add header to output. If false, it
+will ignore header. This function can only load CSVs of consistent
+data type, namely Float64 or string - a column at the second
+row cannot be parsed to Float64, the column will be loaded as a
+string.
+
+# Binary floats
+Use these to save space when saving data.
+
+Telecoms.save_as_binary_floats(t, x, filename)
+Unlike CSV this is just for waveform data with uniform
+t and variable x. ".dat" is appended to filename.
+
+Telecoms.save_as_binary_floats(x, filename)
+Variable x is saved to binary file.
+
+Telecoms.load_binary_floats_waveform(filename)
+Loads the CSV as with save_as_binary_floats(t, x, filename).
+
+Telecoms.load_binary_floats(filename)
+
+# Binary words - OMA
+OMA binary format uses even less space, but resulting floats only have 
+65535 discrete values. It's a result of the OMA quantisation depth.
+It isn't really useful in storing the result of offline calculations,
+so there is no way to save to this file type.
+Telecoms.OMA_channel_n_data among others stores this type.
+
+Telecoms.load_binary_words(filename)
+Telecoms.load_OMA_words(filename)
+OMA and old OMA both use this format. Equivalent functions are
+load_floats_from_binary and load_OMA.
+
+# Legacy formats
+Telecoms.load_mathcad(filename)
+As from the TDS520C floppy "Mathcad" format.
+
+# DAQ2
+Load the output from Ali Masoudi's first DAS box.
+load_DAQ2(dirname,
+    n_files,
+    fast_range,
+    decimation,
+    slow_avg,
+    fast_avg,
+    fastslow_avg,
+    memory_limit,
+    axes)
+return ret
+return ret, distance, time (if axes)
+Fast = distance (x) axis, slow = time (y) axis.
+Where dirname is the name of the directory in which DAS data is stored.
+The memory limit may be set to prevent
+too much data from being loaded in. The default memory limit is 80% of the
+total system memory.
+An averaging/decimation algorithm is selected by setting one of decimation,
+slow_avg, fast_avg, fastslow_avg to an undersampling factor N where every
+N+1 sample is dropped in the case of decimation and averaged in the case
+of avg. A value of N=0, the default, means no algorithm should be used.
+The fast_range is a tuple which can be set to load in the desired
+distance sample range. 
+Additionally, decimation skips decimation samples in
+distance. The spatial average stores the mean of the next fast_avg
+samples in the closest sample. The temporal average stores mean of next
+slow_avg samples is stored in the earliest sample. fastslow_avg^2 samples'
+mean is stored in the closet and earliest sample.
+
+print_loading_bar(n1, n2)
+Print a loading bar on the same line according to the quotient of the
+two arguments.
+
+# Network instrument control
+TCP_connect(ip, port)
+TCP_disconnect(socket)
+Following functions have a termination_characters kwarg containing an 
+array of termination characters, default ['\n'].
+TCP_write(socket, command)
+TCP_query(socket, command)
+TCP_identify(socket)
+##########
+
+##########
+Generic analysis:
+
+Functions:
+
+# Searching
+Telecoms.peak_search(x)(x, y)
+Search for the highest value in x with the result as (value, index).
+(x, idx) or (x, y) if y given.
+
+Telecoms.n_peak_search(x, n)(x, y, n)
+Search for the first n highest peaks. Returns vector of the above
+data. Prevent neighbouring peaks by specifying kwarg "backoff",
+the number of indices between detected peaks. 
+
+Telecoms.find(x, x_0)(x, y, y_0)
+Find the point x_0 in x as (x, idx) or y_0 in y as (x, y).
+
+Telecoms.data_around_peak(x, y, Dx)
+Return a slice of x and y around the highest y value with Dx being
+the slice size in +/- Dx.
+
+Telecoms.data_around_trough(x, y, Dx)
+
+# Calculating
+Telecoms.dBm2mW(x)
+mW2dBm
+
+integral_from_module(t, x)
+Integrate x along t
+
+integral_rect
+Integrate x along t using Riemann method
+
+integral_trap
+Integrate x along t using a trapezoidal method
+
+# Checking
+Telecoms.any_zero_nan(x)
+Shorthand to check before logarithms.
+
+# Discrete manipulation
+Telecoms.undersample(x, factor)
+Where factor is an integer, undersample uniformly at a ratio of
+factor.
+
+decimation_avg(t, x, factor)
+Where factor is an integer, undersample uniformly at a ratio of
+factor where the resulting sample is the mean of the discarded samples.
+Useful for changing VBW when plotting.
+##########
+
+##########
+Frequency analysis:
+
+Arguments are an array of Numbers.
+
+The FFT-type functions operate on complex-valued time-domain data.
+These correspond to double-sideband (DSB) spectra.
+
+The RFFT-type functions operate on real-valued 
+time-domain data.
+These correspond to single-sideband (SSB) spectra.
+
+# FFT
+Functions:
+Telecoms.fft(x, Fs) or (i, q, Fs)::(w, X)
+Compute FFT with sample rate used to generate the frequency axis.
+
+Telecoms.fft_norm
+FFT with output amplitude normalised to the number of samples.
+
+Telecoms.fft_magnitude
+Output is magnitude of FFT.
+
+Telecoms.fft_magnitude_dB
+Output is 20log10(FFT).
+
+Telecoms.fft_magnitude_norm
+Telecoms.fft_magnitude_norm_dB
+Telecoms.fft_phase
+Output is the phase of FFT.
+
+# RFFT
+Telecoms.rfft(x, Fs)::(w, X)
+Real-input FFT with the frequency axis starting at 0 Hz.
+
+Telecoms.rfft_norm
+Telecoms.rfft_magnitude
+Telecoms.rfft_magnitude_dB
+Telecoms.rfft_magnitude_norm
+Telecoms.rfft_magnitude_norm_dB
+Telecoms.rfft_phase
+
+# PSD
+Telecoms.psd(x, fs)::(f, PSD)
+Compute the single-sided PSD of a real-valued signal using the
+Fourier transform. The output is expressed in dB.
+2*RFFT(X)/(N*dt)
+
+Telecoms.psd_linear
+
+Telecoms.psd_double
+Double-sided PSD.
+
+Telecoms.psd_double_linear
+
+# IFFT
+Telecoms.ifft(X, fs)::(t, x)
+Compute IFFT with sample rate used to generate a time axis starting
+at t=0.
+
+# IRFFT
+irfft
+
+# Analysis of distributions
+Telecoms.fwhm(w, X)
+Telecoms.hwhm
+Telecoms.fwhm_dB
+Telecoms.hwhm_dB
+Telecoms.fit_Lorentzian(w, X) (not good)
+Telecoms.fit_Gaussian (")
+
+# Windows
+ENBW(x)
+Equivalent noise bandwidth of window x
+
+generate_Hanning_window(N)
+Generate a Hanning window of N samples in length.
+Where window is sin2(pi*x/N)
+
+Telecoms.Hanning_window(x)
+Apply Hanning window to x
+
+# Phase analysis
+Telecoms.analytic(x)
+Hilbert transform of AC signal.
+
+unwrap(phi)
+
+Telecoms.unwrap_analytic(x)
+Compute phase evolution of complex-valued signal.
+
+Telecoms.instantaneous_frequency(t, x)
+Compute instantaneous frequency of the signal with discrete
+derivative according to sample period of t. In Hz.
+Consider removing random final sample.
+
+Telecoms.frequency_spectrum(t, x; f_0)
+Compute frequency spectrum in Hz^2/Hz of x where f_0 is the carrier 
+frequency.
+
+Telecoms.frequency_spectrum_favg(filenames, data_fn; f_0)
+Compute the frequency spectrum of all OMA-binary-words-encoded data in 
+array of data filenames filenames and store the result as waveform 
+packed floats in data_fn.
+(Filename array may be obtained using Julia function readdir)
+
+# Filtering
+Telecoms.block_DC_fft(x)
+Shift signal to 0 using FFT method.
+
+Telecoms.block_DC_mean
+Shift signal to 0 by subtracting statistical mean from it.
+##########
+
+
+##########
+IQ tools:
+Arguments are array of real-valued i and q data
+
+Functions:
+Telecoms.iq_amplitude
+Telecoms.iq_power
+
+generate_Lorentzian_signal(f_0, linewidth, f_s, N)
+Generate a signal at carrier f_0 with Lorentzian-distrubted noise with 
+width linewidth with a sample rate of f_s and length of N samples.
+#########
+
+#########
+Keysight/Agilent OMA:
+Acquire. Retrieve voltage waveform from OMA, save to file, load 
+time and voltage data.
+
+Functions:
+Telecoms.OMA_connect(ip, port)
+Return connection as socket.
+
+Telecoms.disconnect(oma)
+Disconnect socket.
+
+Telecoms.identify(oma)
+
+Telecoms.OMA_setup(oma)
+Set OMA to send LSB first binary in streaming mode.
+
+Telecoms.OMA_channel_n_data(OMA, channel_no, filename)
+Get binary waveform from channel n, saving to file.
+
+Telecoms.OMA_channel_all_data
+
+OMA_capture_n_times(oma, n, ch, filename)
+Store n waveforms from channel ch or "all" channels in output files
+filename_i for i in 0:N-1.
+
+Telecoms.load_floats_from_binary(filename)
+Telecoms.load_OMA(filename)
+Equivalent functions. This is not a Mathcad/binary file because
+it uses normalised integers (2 bytes per sample) instead of 
+floats (8 bytes per sample).
+#########
+
+#########
+BOSA:
+Retrieve waveform from BOSA. Does not acquire.
+We need different functions for BOSA because of its different way
+of communicating.
+
+Functions:
+Telecoms.bosa_connect(ip, port)
+Return connection to bosa as socket.
+
+Telecoms.bosa_identify(bosa)
+
+Telecoms.bosa_metadata(bosa, filename)
+Save a bunch of metadata from the current acquisition.
+
+Telecoms.bosa_trace(bosa)
+Return the trace data as w, psd.
+
+Telecoms.bosa_get_power(bosa)
+In dBm.
+#########
